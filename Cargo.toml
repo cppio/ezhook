@@ -3,6 +3,13 @@ name = "ezhook"
 version = "0.1.0"
 edition = "2018"
 
+authors = ["Parth Shastri"]
+description = "Function hooking for x86"
+repository = "https://github.com/cppio/ezhook"
+license = "MIT"
+keywords = ["hook", "detour", "function", "x86"]
+categories = ["hardware-support", "no-std"]
+
 [target.'cfg(unix)'.dev-dependencies]
 libc = { version = "0.2.71", default-features = false }
 
