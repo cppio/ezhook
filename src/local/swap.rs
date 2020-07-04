@@ -95,7 +95,6 @@ impl<T> ConstHook<T> {
 }
 
 impl<T: Copy> ConstHook<T> {
-    #[inline(always)]
     #[doc(hidden)]
     pub unsafe fn raw(&mut self) -> &mut Hook<T> {
         &mut *(self as *mut _ as *mut _)
@@ -103,7 +102,7 @@ impl<T: Copy> ConstHook<T> {
 }
 
 #[macro_export]
-macro_rules! raw_hook {
+macro_rules! local_swap_hook {
     {
         @dollar($dollar:tt)
 
@@ -120,7 +119,7 @@ macro_rules! raw_hook {
                 macro_rules! toggle {
                     () => {
                         #[allow(unused_unsafe)]
-                        unsafe { super::HOOK.raw().toggle_inline() }
+                        unsafe { super::HOOK.raw().toggle() }
                     }
                 }
 
@@ -130,16 +129,16 @@ macro_rules! raw_hook {
                         {
                             #[allow(unused_unsafe)]
                             let target = unsafe {
-                                super::HOOK.raw().toggle_inline();
+                                super::HOOK.raw().toggle();
 
-                                super::HOOK.raw().target_inline()
+                                super::HOOK.raw().target()
                             };
 
                             let result = target($dollar($arg)*);
 
                             #[allow(unused_unsafe)]
                             unsafe {
-                                super::HOOK.raw().toggle_inline();
+                                super::HOOK.raw().toggle();
                             }
 
                             result
@@ -160,8 +159,8 @@ macro_rules! raw_hook {
                 fn($($param)*) $(-> $ret)?
             ;
 
-            static mut HOOK: $crate::raw::ConstHook<Func> = unsafe {
-                $crate::raw::ConstHook::new(hook::$name)
+            static mut HOOK: $crate::local::swap::ConstHook<Func> = unsafe {
+                $crate::local::swap::ConstHook::new(hook::$name)
             };
 
             pub unsafe fn hook(target: Func) {
@@ -185,13 +184,13 @@ macro_rules! raw_hook {
         }
     };
 
-    ($($tt:tt)*) => { $crate::raw_hook! { @dollar($) $($tt)* } };
+    ($($tt:tt)*) => { $crate::local_swap_hook! { @dollar($) $($tt)* } };
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{os::tests as os, util::tests as util};
+    use crate::util;
 
     #[inline(never)]
     fn square(x: i32) -> i32 {
@@ -202,14 +201,14 @@ mod tests {
         x
     }
 
-    raw_hook! {
+    local_swap_hook! {
         fn add_one_before(x: i32) -> i32 {
             orig!(x + 1)
         }
     }
 
     fn setup() {
-        os::unprotect(square as _, 5);
+        util::unprotect(square as _, 5);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::raw::Hook;
+use crate::local::swap::Hook;
 use core::{mem, slice};
 
 #[doc(hidden)]
@@ -16,7 +16,7 @@ pub unsafe fn copy_to<T: Copy>(start: usize, end: *const Hook<T>, dest: &mut [u8
 }
 
 #[macro_export]
-macro_rules! remote_hook {
+macro_rules! remote_swap_hook {
     {
         @dollar($dollar:tt)
 
@@ -71,8 +71,8 @@ macro_rules! remote_hook {
                 $(#[link_section = "remotehk"] $item)*
 
                 #[link_section = "remotehk"]
-                pub static mut __REMOTE_HOOK_RAW: $crate::raw::Hook<super::Func> = unsafe {
-                    $crate::raw::Hook::empty()
+                pub static mut __REMOTE_HOOK_RAW: $crate::local::swap::Hook<super::Func> = unsafe {
+                    $crate::local::swap::Hook::empty()
                 };
             }
 
@@ -86,35 +86,35 @@ macro_rules! remote_hook {
 
             #[allow(dead_code)]
             pub unsafe fn len() -> usize {
-                $crate::remote::len(hook::$name as usize, &hook::__REMOTE_HOOK_RAW)
+                $crate::remote::swap::len(hook::$name as usize, &hook::__REMOTE_HOOK_RAW)
             }
 
-            pub unsafe fn copy_to(dest: &mut [u8]) -> &mut $crate::raw::Hook<Func> {
-                $crate::remote::copy_to(hook::$name as usize, &hook::__REMOTE_HOOK_RAW, dest)
+            pub unsafe fn copy_to(dest: &mut [u8]) -> &mut $crate::local::swap::Hook<Func> {
+                $crate::remote::swap::copy_to(hook::$name as usize, &hook::__REMOTE_HOOK_RAW, dest)
             }
         }
     };
 
-    ($($tt:tt)*) => { $crate::remote_hook! { @dollar($) $($tt)* } };
+    ($($tt:tt)*) => { $crate::remote_swap_hook! { @dollar($) $($tt)* } };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{os::tests as os, util::tests as util};
+    use crate::util;
 
     #[inline(never)]
     fn square(x: i32) -> i32 {
         util::black_box(x * x)
     }
 
-    remote_hook! {
+    remote_swap_hook! {
         #[hook]
         fn add_one_before(x: i32) -> i32 {
             orig!(x + 1)
         }
     }
 
-    remote_hook! {
+    remote_swap_hook! {
         #[hook]
         fn delayed(x: i32) -> i32 {
             update_last(orig!(x))
@@ -130,9 +130,9 @@ mod tests {
     }
 
     fn setup(size: usize) -> &'static mut [u8] {
-        os::unprotect(square as _, 5);
+        util::unprotect(square as _, 5);
 
-        os::allocate(square as _, size)
+        util::allocate(square as _, size)
     }
 
     #[test]

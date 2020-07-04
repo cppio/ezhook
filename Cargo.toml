@@ -1,6 +1,6 @@
 [package]
 name = "ezhook"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 
 authors = ["Parth Shastri"]
@@ -14,4 +14,4 @@ categories = ["hardware-support", "no-std"]
 libc = { version = "0.2.71", default-features = false }
 
 [target.'cfg(windows)'.dev-dependencies]
-winapi = { version = "0.3.8", features = ["memoryapi"] }
+winapi = { version = "0.3.9", features = ["memoryapi"] }
