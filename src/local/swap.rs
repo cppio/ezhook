@@ -272,4 +272,57 @@ mod tests {
             assert_eq!(square(5), 25);
         }
     }
+
+    #[test]
+    fn hook_multiple() {
+        setup();
+
+        let mut hook = unsafe { Hook::<fn(i32) -> i32>::new(identity) };
+
+        unsafe { add_one_before::hook(square) };
+        unsafe { hook.hook(square) };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
+
+        unsafe { add_one_before::toggle() };
+
+        assert_eq!(square(4), 25);
+        assert_eq!(square(5), 36);
+
+        unsafe { hook.toggle() };
+
+        assert_eq!(square(4), 4);
+        assert_eq!(square(5), 5);
+
+        unsafe { hook.toggle() };
+
+        assert_eq!(square(4), 25);
+        assert_eq!(square(5), 36);
+
+        unsafe { add_one_before::toggle() };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
+
+        unsafe { hook.toggle() };
+
+        assert_eq!(square(4), 4);
+        assert_eq!(square(5), 5);
+
+        unsafe { add_one_before::toggle() };
+
+        assert_eq!(square(4), 5);
+        assert_eq!(square(5), 6);
+
+        unsafe { add_one_before::toggle() };
+
+        assert_eq!(square(4), 4);
+        assert_eq!(square(5), 5);
+
+        unsafe { hook.toggle() };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
+    }
 }
