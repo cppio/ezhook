@@ -21,6 +21,10 @@ impl<T> Hook<T> {
 }
 
 impl<T: Copy> Hook<T> {
+    pub unsafe fn set_detour(&mut self, detour: T) {
+        self.detour_trampoline = detour;
+    }
+
     pub unsafe fn hook(&mut self, target: T, trampoline: &'static mut [u8; 24]) {
         let detour: isize = util::transmute(self.detour_trampoline);
         let target: isize = util::transmute(target);
@@ -68,8 +72,13 @@ impl<T: Copy> Hook<T> {
         *target = *(trampoline as *const _);
     }
 
-    pub unsafe fn trampoline(&self) -> T {
+    #[inline(always)]
+    pub unsafe fn trampoline_inline(&self) -> T {
         self.detour_trampoline
+    }
+
+    pub unsafe fn trampoline(&self) -> T {
+        self.trampoline_inline()
     }
 }
 
