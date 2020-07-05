@@ -1,5 +1,5 @@
 #[inline(always)]
-pub unsafe fn transmute<T: Copy + 'static, U: Copy + 'static>(value: T) -> U {
+pub unsafe fn transmute<T: 'static, U: Copy + 'static>(value: T) -> U {
     *(&value as *const _ as *const _)
 }
 
