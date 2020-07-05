@@ -76,6 +76,14 @@ macro_rules! local_swap_hook {
                 use super::super::*;
 
                 #[allow(unused_macros)]
+                macro_rules! toggle {
+                    () => {
+                        #[allow(unused_unsafe)]
+                        unsafe { super::toggle() }
+                    };
+                }
+
+                #[allow(unused_macros)]
                 macro_rules! orig {
                     ($dollar($arg:tt)*) => {
                         {
