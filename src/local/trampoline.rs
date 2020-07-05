@@ -97,6 +97,14 @@ macro_rules! local_trampoline_hook {
                 use super::super::*;
 
                 #[allow(unused_macros)]
+                macro_rules! unhook {
+                    () => {
+                        #[allow(unused_unsafe)]
+                        unsafe { super::unhook() }
+                    };
+                }
+
+                #[allow(unused_macros)]
                 macro_rules! orig {
                     ($dollar($arg:tt)*) => {
                         {

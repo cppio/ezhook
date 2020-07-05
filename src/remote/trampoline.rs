@@ -40,6 +40,14 @@ macro_rules! remote_trampoline_hook {
                 use super::super::*;
 
                 #[allow(unused_macros)]
+                macro_rules! unhook {
+                    () => {
+                        #[allow(unused_unsafe)]
+                        unsafe { __ez_HOOK.unhook() }
+                    };
+                }
+
+                #[allow(unused_macros)]
                 macro_rules! orig {
                     ($dollar($arg:tt)*) => {
                         {
