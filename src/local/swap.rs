@@ -1,61 +1,46 @@
 use crate::util;
 
-use core::{
-    convert::{TryFrom, TryInto},
-    marker::PhantomData,
-};
+use core::convert::{TryFrom, TryInto};
 
-#[repr(C)]
 pub struct Hook<T: 'static> {
-    offset: isize,
+    detour_target: T,
     scratch: [u8; 5],
-    phantom: PhantomData<T>,
 }
 
 impl<T> Hook<T> {
-    #[doc(hidden)]
-    pub const unsafe fn empty() -> Self {
+    pub const unsafe fn new(detour: T) -> Self {
         Self {
-            offset: 0,
+            detour_target: detour,
             scratch: [0xE9, 0, 0, 0, 0],
-            phantom: PhantomData,
         }
     }
 }
 
 impl<T: Copy> Hook<T> {
-    pub unsafe fn new(detour: T) -> Self {
-        let mut hook = Self::empty();
-        hook.offset = util::transmute(detour);
-        hook
-    }
-
-    #[doc(hidden)]
-    pub unsafe fn init(&mut self, offset: isize) {
-        self.offset = offset;
+    pub unsafe fn set_detour(&mut self, detour: T) {
+        self.detour_target = detour;
     }
 
     pub unsafe fn hook(&mut self, target: T) {
+        let detour: isize = util::transmute(self.detour_target);
+        self.detour_target = target;
         let target: isize = util::transmute(target);
 
-        let offset = i32::try_from(self.offset - target - 5).unwrap();
+        let offset = i32::try_from(detour - target - 5).unwrap();
         self.scratch[1..].copy_from_slice(&offset.to_ne_bytes());
-
-        self.offset = target - self as *mut _ as isize;
     }
 
     pub unsafe fn unhook(&mut self) {
-        let target = self.offset + self as *mut _ as isize;
         let offset = i32::from_ne_bytes(self.scratch[1..].try_into().unwrap()) as isize;
 
-        self.offset = offset + target + 5;
+        let target: isize = util::transmute(self.detour_target);
+        self.detour_target = util::transmute(offset + target + 5);
     }
 
     #[inline(always)]
-    #[doc(hidden)]
     #[allow(clippy::manual_swap)]
     pub unsafe fn toggle_inline(&mut self) {
-        let target = (self.offset + self as *mut _ as isize) as *mut [u8; 5];
+        let target: *mut [u8; 5] = util::transmute(self.detour_target);
 
         let scratch = self.scratch;
         self.scratch = *target;
@@ -67,37 +52,12 @@ impl<T: Copy> Hook<T> {
     }
 
     #[inline(always)]
-    #[doc(hidden)]
     pub unsafe fn target_inline(&self) -> T {
-        util::transmute(self.offset + self as *const _ as isize)
+        self.detour_target
     }
 
     pub unsafe fn target(&self) -> T {
         self.target_inline()
-    }
-}
-
-#[doc(hidden)]
-#[repr(C)]
-pub struct ConstHook<T: 'static> {
-    detour: T,
-    scratch: [u8; 5],
-}
-
-impl<T> ConstHook<T> {
-    #[doc(hidden)]
-    pub const unsafe fn new(detour: T) -> Self {
-        Self {
-            detour,
-            scratch: [0xE9, 0, 0, 0, 0],
-        }
-    }
-}
-
-impl<T: Copy> ConstHook<T> {
-    #[doc(hidden)]
-    pub unsafe fn raw(&mut self) -> &mut Hook<T> {
-        &mut *(self as *mut _ as *mut _)
     }
 }
 
@@ -111,17 +71,9 @@ macro_rules! local_swap_hook {
         fn $name:ident($($param:tt)*) $(-> $ret:ty)? $body:block
     } => {
         $vis mod $name {
-            mod hook {
+            mod __ez_hook {
                 #[allow(unused_imports)]
                 use super::super::*;
-
-                #[allow(unused_macros)]
-                macro_rules! toggle {
-                    () => {
-                        #[allow(unused_unsafe)]
-                        unsafe { super::HOOK.raw().toggle() }
-                    }
-                }
 
                 #[allow(unused_macros)]
                 macro_rules! orig {
@@ -129,21 +81,21 @@ macro_rules! local_swap_hook {
                         {
                             #[allow(unused_unsafe)]
                             let target = unsafe {
-                                super::HOOK.raw().toggle();
+                                super::toggle();
 
-                                super::HOOK.raw().target()
+                                super::target()
                             };
 
                             let result = target($dollar($arg)*);
 
                             #[allow(unused_unsafe)]
                             unsafe {
-                                super::HOOK.raw().toggle();
+                                super::toggle();
                             }
 
                             result
                         }
-                    }
+                    };
                 }
 
                 $(#[$attr])* pub
@@ -154,32 +106,34 @@ macro_rules! local_swap_hook {
             #[allow(unused_imports)]
             use super::*;
 
-            type Func =
+            #[allow(non_camel_case_types)]
+            type __ez_Func =
                 $(unsafe $($unsafe)?)? $(extern $($abi)?)?
                 fn($($param)*) $(-> $ret)?
             ;
 
-            static mut HOOK: $crate::local::swap::ConstHook<Func> = unsafe {
-                $crate::local::swap::ConstHook::new(hook::$name)
+            #[allow(non_upper_case_globals)]
+            static mut __ez_HOOK: $crate::local::swap::Hook<__ez_Func> = unsafe {
+                $crate::local::swap::Hook::new(__ez_hook::$name)
             };
 
-            pub unsafe fn hook(target: Func) {
-                HOOK.raw().hook(target)
+            pub unsafe fn hook(target: __ez_Func) {
+                __ez_HOOK.hook(target)
             }
 
             #[allow(dead_code)]
             pub unsafe fn unhook() {
-                HOOK.raw().unhook()
+                __ez_HOOK.unhook()
             }
 
             #[allow(dead_code)]
             pub unsafe fn toggle() {
-                HOOK.raw().toggle()
+                __ez_HOOK.toggle()
             }
 
             #[allow(dead_code)]
-            pub unsafe fn target() -> Func {
-                HOOK.raw().target()
+            pub unsafe fn target() -> __ez_Func {
+                __ez_HOOK.target()
             }
         }
     };

@@ -1,17 +1,24 @@
-use crate::local::swap::Hook;
+use crate::{local::swap::Hook, util};
+
 use core::{mem, slice};
 
 #[doc(hidden)]
-pub unsafe fn len<T: Copy>(start: usize, end: *const Hook<T>) -> usize {
-    end as usize - start + mem::size_of::<Hook<T>>()
+pub unsafe fn len<T: Copy>(end: &'static Hook<T>, start: T) -> usize {
+    let start: usize = util::transmute(start);
+    end as *const _ as usize - start + mem::size_of_val(end)
 }
 
 #[doc(hidden)]
-pub unsafe fn copy_to<T: Copy>(start: usize, end: *const Hook<T>, dest: &mut [u8]) -> &mut Hook<T> {
-    dest.copy_from_slice(slice::from_raw_parts(start as _, len(start, end)));
+pub unsafe fn copy_to<'a, T: Copy>(
+    end: &'static Hook<T>,
+    start: T,
+    dest: &'a mut [u8],
+) -> &'a mut Hook<T> {
+    let size = len(end, start);
+    dest.copy_from_slice(slice::from_raw_parts(util::transmute(start), size));
 
-    let remote = &mut *((end as usize - start + dest.as_ptr() as usize) as *mut Hook<T>);
-    remote.init(dest.as_ptr() as _);
+    let remote = &mut *(dest[size - mem::size_of_val(end)..].as_mut_ptr() as *mut Hook<T>);
+    remote.set_detour(util::transmute(dest.as_ptr()));
     remote
 }
 
@@ -28,7 +35,7 @@ macro_rules! remote_swap_hook {
         $($item:item)*
     } => {
         $vis mod $name {
-            mod hook {
+            mod __ez_hook {
                 #[allow(unused_imports)]
                 use super::super::*;
 
@@ -36,8 +43,8 @@ macro_rules! remote_swap_hook {
                 macro_rules! toggle {
                     () => {
                         #[allow(unused_unsafe)]
-                        unsafe { __REMOTE_HOOK_RAW.toggle_inline() }
-                    }
+                        unsafe { __ez_HOOK.toggle_inline() }
+                    };
                 }
 
                 #[allow(unused_macros)]
@@ -46,21 +53,21 @@ macro_rules! remote_swap_hook {
                         {
                             #[allow(unused_unsafe)]
                             let target = unsafe {
-                                __REMOTE_HOOK_RAW.toggle_inline();
+                                __ez_HOOK.toggle_inline();
 
-                                __REMOTE_HOOK_RAW.target_inline()
+                                __ez_HOOK.target_inline()
                             };
 
                             let result = target($dollar($arg)*);
 
                             #[allow(unused_unsafe)]
                             unsafe {
-                                __REMOTE_HOOK_RAW.toggle_inline();
+                                __ez_HOOK.toggle_inline();
                             }
 
                             result
                         }
-                    }
+                    };
                 }
 
                 #[link_section = "remotehk"]
@@ -71,26 +78,28 @@ macro_rules! remote_swap_hook {
                 $(#[link_section = "remotehk"] $item)*
 
                 #[link_section = "remotehk"]
-                pub static mut __REMOTE_HOOK_RAW: $crate::local::swap::Hook<super::Func> = unsafe {
-                    $crate::local::swap::Hook::empty()
+                #[allow(non_upper_case_globals)]
+                pub static mut __ez_HOOK: $crate::local::swap::Hook<super::__ez_Func> = unsafe {
+                    $crate::local::swap::Hook::new($name)
                 };
             }
 
             #[allow(unused_imports)]
             use super::*;
 
-            type Func =
+            #[allow(non_camel_case_types)]
+            type __ez_Func =
                 $(unsafe $($unsafe)?)? $(extern $($abi)?)?
                 fn($($param)*) $(-> $ret)?
             ;
 
             #[allow(dead_code)]
             pub unsafe fn len() -> usize {
-                $crate::remote::swap::len(hook::$name as usize, &hook::__REMOTE_HOOK_RAW)
+                $crate::remote::swap::len(&__ez_hook::__ez_HOOK, __ez_hook::$name)
             }
 
-            pub unsafe fn copy_to(dest: &mut [u8]) -> &mut $crate::local::swap::Hook<Func> {
-                $crate::remote::swap::copy_to(hook::$name as usize, &hook::__REMOTE_HOOK_RAW, dest)
+            pub unsafe fn copy_to(dest: &mut [u8]) -> &mut $crate::local::swap::Hook<__ez_Func> {
+                $crate::remote::swap::copy_to(&__ez_hook::__ez_HOOK, __ez_hook::$name, dest)
             }
         }
     };
@@ -172,8 +181,8 @@ mod tests {
         let dest = setup(unsafe { delayed::len() });
 
         let hook = unsafe { delayed::copy_to(dest) };
-
         unsafe { hook.hook(square) };
+
         unsafe { hook.toggle() };
 
         assert_eq!(square(4), 0);
