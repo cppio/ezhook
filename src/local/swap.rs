@@ -23,24 +23,26 @@ impl<T: Copy> Hook<T> {
 
     pub unsafe fn hook(&mut self, target: T) {
         let detour: isize = util::transmute(self.detour_target);
-        self.detour_target = target;
         let target: isize = util::transmute(target);
 
         let offset = i32::try_from(detour - target - 5).unwrap();
         self.scratch[1..].copy_from_slice(&offset.to_ne_bytes());
+
+        self.detour_target = util::transmute(target - self as *mut _ as isize);
     }
 
     pub unsafe fn unhook(&mut self) {
         let offset = i32::from_ne_bytes(self.scratch[1..].try_into().unwrap()) as isize;
 
         let target: isize = util::transmute(self.detour_target);
-        self.detour_target = util::transmute(offset + target + 5);
+        self.detour_target = util::transmute(offset + target + self as *mut _ as isize + 5);
     }
 
     #[inline(always)]
     #[allow(clippy::manual_swap)]
     pub unsafe fn toggle_inline(&mut self) {
-        let target: *mut [u8; 5] = util::transmute(self.detour_target);
+        let target: isize = util::transmute(self.detour_target);
+        let target = (target + self as *mut _ as isize) as *mut _;
 
         let scratch = self.scratch;
         self.scratch = *target;
@@ -53,7 +55,8 @@ impl<T: Copy> Hook<T> {
 
     #[inline(always)]
     pub unsafe fn target_inline(&self) -> T {
-        self.detour_target
+        let target: isize = util::transmute(self.detour_target);
+        util::transmute(target + self as *const _ as isize)
     }
 
     pub unsafe fn target(&self) -> T {

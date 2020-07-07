@@ -9,11 +9,11 @@ pub unsafe fn len<T: Copy>(end: &'static Hook<T>, start: T) -> usize {
 }
 
 #[doc(hidden)]
-pub unsafe fn copy_to<'a, T: Copy>(
+pub unsafe fn copy_to<T: Copy>(
     end: &'static Hook<T>,
     start: T,
-    dest: &'a mut [u8],
-) -> &'a mut Hook<T> {
+    dest: &'static mut [u8],
+) -> &'static mut Hook<T> {
     let size = len(end, start);
     dest.copy_from_slice(slice::from_raw_parts(util::transmute(start), size));
 
@@ -98,7 +98,9 @@ macro_rules! remote_swap_hook {
                 $crate::remote::swap::len(&__ez_hook::__ez_HOOK, __ez_hook::$name)
             }
 
-            pub unsafe fn copy_to(dest: &mut [u8]) -> &mut $crate::local::swap::Hook<__ez_Func> {
+            pub unsafe fn copy_to(
+                dest: &'static mut [u8],
+            ) -> &mut $crate::local::swap::Hook<__ez_Func> {
                 $crate::remote::swap::copy_to(&__ez_hook::__ez_HOOK, __ez_hook::$name, dest)
             }
         }

@@ -51,11 +51,13 @@ impl<T: Copy> Hook<T> {
         jump[1..5].copy_from_slice(&offset2.to_ne_bytes());
         jump[5..].copy_from_slice(&[0xCC; 14][..19 - count]);
 
-        self.detour_trampoline = util::transmute(trampoline);
+        self.detour_trampoline =
+            util::transmute(trampoline as *mut _ as isize - self as *mut _ as isize);
     }
 
     pub unsafe fn unhook(&mut self) {
-        let trampoline: *const [u8; 24] = util::transmute(self.detour_trampoline);
+        let trampoline: isize = util::transmute(self.detour_trampoline);
+        let trampoline = (trampoline + self as *mut _ as isize) as *const [u8; 24];
 
         let jump = X86
             .iter(&*trampoline, 0)
@@ -74,7 +76,8 @@ impl<T: Copy> Hook<T> {
 
     #[inline(always)]
     pub unsafe fn trampoline_inline(&self) -> T {
-        self.detour_trampoline
+        let trampoline: isize = util::transmute(self.detour_trampoline);
+        util::transmute(trampoline + self as *const _ as isize)
     }
 
     pub unsafe fn trampoline(&self) -> T {

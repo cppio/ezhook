@@ -9,11 +9,11 @@ pub unsafe fn len<T: Copy>(end: &'static Hook<T>, start: T) -> usize {
 }
 
 #[doc(hidden)]
-pub unsafe fn copy_to<'a, T: Copy>(
+pub unsafe fn copy_to<T: Copy>(
     end: &'static Hook<T>,
     start: T,
-    dest: &'a mut [u8],
-) -> &'a mut Hook<T> {
+    dest: &'static mut [u8],
+) -> &'static mut Hook<T> {
     let size = len(end, start);
     dest.copy_from_slice(slice::from_raw_parts(util::transmute(start), size));
 
@@ -40,14 +40,6 @@ macro_rules! remote_trampoline_hook {
                 use super::super::*;
 
                 #[allow(unused_macros)]
-                macro_rules! unhook {
-                    () => {
-                        #[allow(unused_unsafe)]
-                        unsafe { __ez_HOOK.unhook() }
-                    };
-                }
-
-                #[allow(unused_macros)]
                 macro_rules! orig {
                     ($dollar($arg:tt)*) => {
                         {
@@ -70,9 +62,8 @@ macro_rules! remote_trampoline_hook {
 
                 #[link_section = "remotehk"]
                 #[allow(non_upper_case_globals)]
-                pub static mut __ez_HOOK: $crate::local::trampoline::Hook<super::__ez_Func> = unsafe {
-                    $crate::local::trampoline::Hook::new($name)
-                };
+                pub static mut __ez_HOOK: $crate::local::trampoline::Hook<super::__ez_Func> =
+                    unsafe { $crate::local::trampoline::Hook::new($name) };
             }
 
             #[allow(unused_imports)]
@@ -89,7 +80,9 @@ macro_rules! remote_trampoline_hook {
                 $crate::remote::trampoline::len(&__ez_hook::__ez_HOOK, __ez_hook::$name)
             }
 
-            pub unsafe fn copy_to(dest: &mut [u8]) -> &mut $crate::local::trampoline::Hook<__ez_Func> {
+            pub unsafe fn copy_to(
+                dest: &'static mut [u8],
+            ) -> &mut $crate::local::trampoline::Hook<__ez_Func> {
                 $crate::remote::trampoline::copy_to(&__ez_hook::__ez_HOOK, __ez_hook::$name, dest)
             }
         }
