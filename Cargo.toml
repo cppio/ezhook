@@ -1,6 +1,6 @@
 [package]
 name = "ezhook"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2018"
 
 authors = ["Parth Shastri"]
@@ -14,13 +14,13 @@ categories = ["hardware-support", "no-std"]
 trampoline = ["lde"]
 
 [dependencies]
-lde = { version = "0.3.0", optional = true }
+lde = { version = "0.3", optional = true }
 
 [target.'cfg(unix)'.dev-dependencies]
-libc = { version = "0.2.71", default-features = false }
+libc = { version = "0.2", default-features = false }
 
 [target.'cfg(windows)'.dev-dependencies]
-winapi = { version = "0.3.9", features = ["memoryapi"] }
+winapi = { version = "0.3", features = ["memoryapi"] }
 
 [package.metadata.docs.rs]
 all-features = true

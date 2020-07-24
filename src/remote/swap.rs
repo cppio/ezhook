@@ -70,14 +70,14 @@ macro_rules! remote_swap_hook {
                     };
                 }
 
-                #[link_section = "remotehk"]
+                #[link_section = "ezhk,rem"]
                 $(#[$attr])* pub
                 $(unsafe $($unsafe)?)? $(extern $($abi)?)?
                 fn $name($($param)*) $(-> $ret)? $body
 
-                $(#[link_section = "remotehk"] $item)*
+                $(#[link_section = "ezhk,rem"] $item)*
 
-                #[link_section = "remotehk"]
+                #[link_section = "ezhk,rem"]
                 #[allow(non_upper_case_globals)]
                 pub static mut __ez_HOOK: $crate::local::swap::Hook<super::__ez_Func> = unsafe {
                     $crate::local::swap::Hook::new($name)
@@ -110,6 +110,7 @@ macro_rules! remote_swap_hook {
 }
 
 #[cfg(test)]
+#[cfg(not(all(target_arch = "x86", windows)))]
 mod tests {
     use crate::util;
 
@@ -199,5 +200,65 @@ mod tests {
 
         assert_eq!(square(4), 25);
         assert_eq!(square(5), 16);
+
+        unsafe { hook.toggle() };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
+    }
+
+    #[test]
+    fn hook_macro_multiple() {
+        let dest = setup(unsafe { add_one_before::len() + delayed::len() });
+        let (dest1, dest2) = dest.split_at_mut(unsafe { add_one_before::len() });
+
+        let hook1 = unsafe { add_one_before::copy_to(dest1) };
+        let hook2 = unsafe { delayed::copy_to(dest2) };
+
+        unsafe { hook1.hook(square) };
+        unsafe { hook2.hook(square) };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
+
+        unsafe { hook1.toggle() };
+
+        assert_eq!(square(4), 25);
+        assert_eq!(square(5), 36);
+
+        unsafe { hook2.toggle() };
+
+        assert_eq!(square(4), 0);
+        assert_eq!(square(5), 25);
+
+        unsafe { hook2.toggle() };
+
+        assert_eq!(square(4), 25);
+        assert_eq!(square(5), 36);
+
+        unsafe { hook1.toggle() };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
+
+        unsafe { hook2.toggle() };
+
+        assert_eq!(square(4), 36);
+        assert_eq!(square(5), 16);
+
+        unsafe { hook1.toggle() };
+
+        assert_eq!(square(4), 25);
+        assert_eq!(square(5), 25);
+
+        unsafe { hook1.toggle() };
+
+        assert_eq!(square(4), 36);
+        assert_eq!(square(5), 16);
+
+        unsafe { hook2.toggle() };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
     }
 }

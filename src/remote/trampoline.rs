@@ -62,14 +62,14 @@ macro_rules! remote_trampoline_hook {
                     };
                 }
 
-                #[link_section = "remotehk"]
+                #[link_section = "ezhk,rem"]
                 $(#[$attr])* pub
                 $(unsafe $($unsafe)?)? $(extern $($abi)?)?
                 fn $name($($param)*) $(-> $ret)? $body
 
-                $(#[link_section = "remotehk"] $item)*
+                $(#[link_section = "ezhk,rem"] $item)*
 
-                #[link_section = "remotehk"]
+                #[link_section = "ezhk,rem"]
                 #[allow(non_upper_case_globals)]
                 pub static mut __ez_HOOK: $crate::local::trampoline::Hook<super::__ez_Func> =
                     unsafe { $crate::local::trampoline::Hook::new($name) };
@@ -101,6 +101,7 @@ macro_rules! remote_trampoline_hook {
 }
 
 #[cfg(test)]
+#[cfg(not(all(target_arch = "x86", windows)))]
 mod tests {
     use crate::util;
 
@@ -192,5 +193,10 @@ mod tests {
 
         assert_eq!(square(4), 25);
         assert_eq!(square(5), 16);
+
+        unsafe { hook.toggle() };
+
+        assert_eq!(square(4), 16);
+        assert_eq!(square(5), 25);
     }
 }
