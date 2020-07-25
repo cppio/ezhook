@@ -48,7 +48,6 @@ mod test {
         pub fn allocate(mut address: usize, size: usize) -> &'static mut [u8] {
             extern crate std;
 
-            use libc::MAP_FIXED;
             use std::{
                 fs::File,
                 io::{BufRead, BufReader},
@@ -75,7 +74,7 @@ mod test {
                     address as _,
                     size,
                     PROT_READ | PROT_WRITE | PROT_EXEC,
-                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                    MAP_PRIVATE | MAP_ANONYMOUS,
                     -1,
                     0,
                 )
