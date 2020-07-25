@@ -44,48 +44,37 @@ mod test {
             );
         }
 
-        #[cfg(target_os = "linux")]
-        pub fn allocate(mut address: usize, size: usize) -> &'static mut [u8] {
-            extern crate std;
+        pub fn allocate(address: usize, size: usize) -> &'static mut [u8] {
+            #[cfg(target_os = "linux")]
+            let address = {
+                extern crate std;
 
-            use std::{
-                fs::File,
-                io::{BufRead, BufReader},
-                vec::Vec,
-            };
+                use std::{
+                    fs::File,
+                    io::{BufRead, BufReader},
+                    vec::Vec,
+                };
 
-            let maps = File::open("/proc/self/maps").unwrap();
+                let mut address = address;
 
-            for line in BufReader::new(maps).lines() {
-                let range = line.as_ref().unwrap().split(' ').next().unwrap();
+                let maps = File::open("/proc/self/maps").unwrap();
 
-                if let [from, to] = &*range.split('-').collect::<Vec<_>>() {
-                    let from = usize::from_str_radix(from, 16).unwrap();
-                    let to = usize::from_str_radix(to, 16).unwrap();
+                for line in BufReader::new(maps).lines() {
+                    let range = line.as_ref().unwrap().split(' ').next().unwrap();
 
-                    if from <= address && address < to {
-                        address = to;
+                    if let [from, to] = &*range.split('-').collect::<Vec<_>>() {
+                        let from = usize::from_str_radix(from, 16).unwrap();
+                        let to = usize::from_str_radix(to, 16).unwrap();
+
+                        if from <= address && address < to {
+                            address = to;
+                        }
                     }
                 }
-            }
 
-            let region = unsafe {
-                mmap(
-                    address as _,
-                    size,
-                    PROT_READ | PROT_WRITE | PROT_EXEC,
-                    MAP_PRIVATE | MAP_ANONYMOUS,
-                    -1,
-                    0,
-                )
+                address
             };
-            assert_ne!(region, MAP_FAILED);
 
-            unsafe { slice::from_raw_parts_mut(region as _, size) }
-        }
-
-        #[cfg(not(target_os = "linux"))]
-        pub fn allocate(address: usize, size: usize) -> &'static mut [u8] {
             let region = unsafe {
                 mmap(
                     address as _,
