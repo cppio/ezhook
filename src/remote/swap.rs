@@ -111,6 +111,7 @@ macro_rules! remote_swap_hook {
 
 #[cfg(test)]
 #[cfg(not(all(target_arch = "x86", windows)))]
+#[allow(clippy::fn_address_comparisons)]
 mod tests {
     use crate::util;
 

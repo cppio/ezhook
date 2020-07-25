@@ -68,6 +68,7 @@ impl<T: Copy> Hook<T> {
     }
 
     #[inline(always)]
+    #[allow(clippy::manual_swap)]
     pub unsafe fn toggle_inline(&mut self) {
         let trampoline = (self.trampoline + self as *mut _ as isize) as *mut [u8; 5];
 
@@ -188,6 +189,7 @@ macro_rules! local_trampoline_hook {
 }
 
 #[cfg(test)]
+#[allow(clippy::fn_address_comparisons)]
 mod tests {
     use super::*;
     use crate::util;

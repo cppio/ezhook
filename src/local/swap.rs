@@ -153,6 +153,7 @@ macro_rules! local_swap_hook {
 }
 
 #[cfg(test)]
+#[allow(clippy::fn_address_comparisons)]
 mod tests {
     use super::*;
     use crate::util;
