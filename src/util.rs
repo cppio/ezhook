@@ -27,16 +27,6 @@ mod test {
             PROT_WRITE,
         };
 
-        #[cfg(target_os = "linux")]
-        extern crate std;
-
-        #[cfg(target_os = "linux")]
-        use std::{
-            fs::File,
-            io::{BufRead, BufReader},
-            vec::Vec,
-        };
-
         const PAGE_SIZE: usize = 0x1000;
 
         pub fn unprotect(address: usize, size: usize) {
@@ -54,29 +44,49 @@ mod test {
             );
         }
 
-        pub fn allocate(address: usize, size: usize) -> &'static mut [u8] {
-            #[cfg(target_os = "linux")]
-            let address = {
-                let mut address = address;
+        #[cfg(target_os = "linux")]
+        pub fn allocate(mut address: usize, size: usize) -> &'static mut [u8] {
+            extern crate std;
 
-                let maps = File::open("/proc/self/maps").unwrap();
-
-                for line in BufReader::new(maps).lines() {
-                    let range = line.as_ref().unwrap().split(' ').next().unwrap();
-
-                    if let [from, to] = &*range.split('-').collect::<Vec<_>>() {
-                        let from = usize::from_str_radix(from, 16).unwrap();
-                        let to = usize::from_str_radix(to, 16).unwrap();
-
-                        if from <= address && address < to {
-                            address = to;
-                        }
-                    }
-                }
-
-                address
+            use libc::MAP_FIXED;
+            use std::{
+                fs::File,
+                io::{BufRead, BufReader},
+                vec::Vec,
             };
 
+            let maps = File::open("/proc/self/maps").unwrap();
+
+            for line in BufReader::new(maps).lines() {
+                let range = line.as_ref().unwrap().split(' ').next().unwrap();
+
+                if let [from, to] = &*range.split('-').collect::<Vec<_>>() {
+                    let from = usize::from_str_radix(from, 16).unwrap();
+                    let to = usize::from_str_radix(to, 16).unwrap();
+
+                    if from <= address && address < to {
+                        address = to;
+                    }
+                }
+            }
+
+            let region = unsafe {
+                mmap(
+                    address as _,
+                    size,
+                    PROT_READ | PROT_WRITE | PROT_EXEC,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                    -1,
+                    0,
+                )
+            };
+            assert_ne!(region, MAP_FAILED);
+
+            unsafe { slice::from_raw_parts_mut(region as _, size) }
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        pub fn allocate(address: usize, size: usize) -> &'static mut [u8] {
             let region = unsafe {
                 mmap(
                     address as _,
