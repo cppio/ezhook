@@ -7,7 +7,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.runner }}-latest
     strategy:
       fail-fast: false
