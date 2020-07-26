@@ -1,24 +1,46 @@
 name: build
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+on: [push, pull_request]
 
 env:
+  CARGO_TERM_VERBOSE: true
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [Linux, Windows, MinGW, macOS]
+        arch: [x86_64, i686]
+        release: ['', release]
+        include:
+          - os: Linux
+            runner: ubuntu
+            target: unknown-linux-gnu
+          - os: Windows
+            runner: windows
+            target: pc-windows-msvc
+          - os: MinGW
+            runner: windows
+            target: pc-windows-gnu
+          - os: macOS
+            runner: macos
+            target: apple-darwin
+        exclude:
+          - os: macOS
+            arch: i686
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose --all-features
+    - name: Install GCC multilib
+      if: matrix.os == 'Linux' && matrix.arch == 'i686'
+      run: sudo apt-get install gcc-multilib
+    - name: Add MinGW to path
+      if: matrix.os == 'MinGW' && matrix.arch == 'i686'
+      run: echo ::add-path::C:\msys64\mingw32\bin
+    - name: Add target
+      if: matrix.os == 'MinGW' || matrix.arch == 'i686'
+      run: rustup target add ${{ matrix.arch }}-${{ matrix.target }}
     - name: Run tests
-      run: cargo test --verbose --all-features -- --test-threads 1
+      run: cargo test --target ${{ matrix.arch }}-${{ matrix.target }} ${{ matrix.release && '--release' }} --all-features -- --test-threads 1
