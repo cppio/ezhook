@@ -9,6 +9,7 @@ repository = "https://github.com/cppio/ezhook"
 license = "MIT"
 keywords = ["hook", "detour", "function", "x86"]
 categories = ["hardware-support", "no-std"]
+include = ["src", "README.md", "LICENSE"]
 
 [features]
 trampoline = ["lde"]
